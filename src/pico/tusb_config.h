@@ -1,4 +1,4 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Ha Thach (tinyusb.org)
@@ -83,7 +83,7 @@
 // max device support (excluding hub device)
 //#define CFG_TUH_DEVICE_MAX          (CFG_TUH_HUB ? 4 : 1) // hub typically has 4 ports
 // note tinyusb is very wasteful on space
-#define CFG_TUH_DEVICE_MAX          1
+#define CFG_TUH_DEVICE_MAX          2
 #define CFG_TUH_HID                 4 // typical keyboard + mouse device can have 3-4 HID interfaces
 //------------- HID -------------//
 #define CFG_TUH_HID_EPIN_BUFSIZE    64

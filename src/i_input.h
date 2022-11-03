@@ -25,7 +25,7 @@
 
 #define MAX_MOUSE_BUTTONS 8
 
-extern float mouse_acceleration;
+extern int mouse_acceleration;
 extern int mouse_threshold;
 
 void I_BindInputVariables(void);
