@@ -646,7 +646,6 @@ if (PICO_SDK)
             TINY_WAD_ADDR=0x10048000
             )
     if (PICO_ON_DEVICE)
-        suppress_tinyusb_warnings()
         add_doom_tiny(_usb render_newhope)
         target_link_libraries(doom_tiny_usb PRIVATE tiny_settings pico_cd)
         target_compile_definitions(doom_tiny_usb PRIVATE
