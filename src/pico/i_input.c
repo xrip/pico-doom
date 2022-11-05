@@ -39,8 +39,8 @@
 #include "pico/binary_info.h"
 #include "tusb.h"
 #include "hardware/irq.h"
-bi_decl(bi_program_feature("USB keyboard support"));
-bi_decl(bi_program_feature("USB mouse support"));
+bi_decl(bi_program_feature("USB keyboard support"))
+bi_decl(bi_program_feature("USB mouse support"))
 #endif
 
 static const int scancode_translate_table[] = SCANCODE_TO_KEYS_ARRAY;
@@ -97,7 +97,7 @@ static unsigned int mouse_button_state = 0;
 // Disallow mouse and joystick movement to cause forward/backward
 // motion.  Specified with the '-novert' command line parameter.
 // This is an int to allow saving to config file
-int novert = 0;
+static int novert = 0;
 
 // If true, keyboard mapping is ignored, like in Vanilla Doom.
 // The sensible thing to do is to disable this if you have a non-US
@@ -629,9 +629,11 @@ static int accel_mouse(int val)
 static void process_mouse_report(hid_mouse_report_t const * report)
 {
     static hid_mouse_report_t prev_report = { 0 };
+    static uint8_t weapon_cycle = 0;
 
     uint8_t buttons_changed = report->buttons ^ prev_report.buttons;
 
+    // special forward and backward keys
     if (buttons_changed)
     {
         static const uint8_t mouse_synth_keys[] = {
@@ -647,6 +649,7 @@ static void process_mouse_report(hid_mouse_report_t const * report)
         }
     }
 
+    // mouse movement and first 3 buttons
     if (report->x != 0 || (!novert && report->y != 0) || buttons_changed)
     {
         event_t event;
@@ -657,11 +660,16 @@ static void process_mouse_report(hid_mouse_report_t const * report)
         D_PostEvent(&event);
     }
 
+    // naive mouse wheel handling yet it works
+    if (weapon_cycle) pico_key_up(weapon_cycle);
     if (report->wheel)
     {
-        uint8_t weapon_cycle = report->wheel > 0 ? HID_KEY_APOSTROPHE : HID_KEY_SLASH;
+        weapon_cycle = report->wheel > 0 ? HID_KEY_SLASH : HID_KEY_APOSTROPHE;
         pico_key_down(weapon_cycle, 0);
-        pico_key_up(weapon_cycle);
+    }
+    else
+    {
+        weapon_cycle = 0;
     }
 
     prev_report = *report;
@@ -687,7 +695,7 @@ struct rule {
     uint8_t code;
 };
 
-const struct rule *rules = (struct rule[]){
+static const struct rule *rules = (struct rule[]){
     {TF, HID_KEY_ARROW_UP},
     {TB, HID_KEY_ARROW_DOWN},
     {TL, HID_KEY_COMMA},
