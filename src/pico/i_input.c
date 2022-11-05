@@ -704,10 +704,10 @@ static const struct rule *rules = (struct rule[]){
     {RB, HID_KEY_TAB},
     {RD, HID_KEY_ENTER},
     {RU, HID_KEY_ESCAPE},
-    {LF, HID_KEY_O},
-    {LB, HID_KEY_7},
-    {LD, HID_KEY_M},
-    {LU, HID_KEY_D},
+    {LF, HID_KEY_SLASH},
+    {LB, HID_KEY_APOSTROPHE},
+    {LD, HID_KEY_Y},
+    {LU, HID_KEY_N},
     {0, 0},
 };
 
