@@ -1,8 +1,9 @@
 # RP2040 Doom
 
-[![RP2040 Doom on a Raspberry Pi Pico](https://img.youtube.com/vi/AAlQNIQVkV4/hqdefault.jpg)](https://youtu.be/AAlQNIQVkV4)
+This is a fork of a port of Doom for RP2040 devices, derived from [Chocolate Doom](https://github.com/chocolate-doom/chocolate-doom).
+Generic USB mouse and limited multi-axis controller support, specifically targeting SandioTech 3D Game O2 [mouse joysticks](https://github.com/arkadijs/sandioblast).
 
-This is a port of Doom for RP2040 devices, derived from [Chocolate Doom](https://github.com/chocolate-doom/chocolate-doom).
+[![RP2040 Doom on a Raspberry Pi Pico](https://img.youtube.com/vi/AAlQNIQVkV4/hqdefault.jpg)](https://youtu.be/AAlQNIQVkV4)
 
 Significant changes have been made to support running on the RP2040 device, but particularly to support running the
 entire shareware `DOOM1.WAD` which is 4M big on a Raspberry Pi Pico with only 2M flash!
