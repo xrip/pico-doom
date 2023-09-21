@@ -39,6 +39,9 @@
 #include "hardware/irq.h"
 bi_decl(bi_program_feature("USB keyboard support"));
 #endif
+// MURM
+#include "nespad.h"
+#include "hardware/clocks.h"
 
 static const int scancode_translate_table[] = SCANCODE_TO_KEYS_ARRAY;
 
@@ -127,6 +130,14 @@ enum {
     SDL_SCANCODE_RSHIFT = 229,
     SDL_SCANCODE_RALT = 230, /**< alt gr, option */
     SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
+
+    SDL_SCANCODE_RIGHT = 79,
+    SDL_SCANCODE_LEFT = 80,
+    SDL_SCANCODE_DOWN = 81,
+    SDL_SCANCODE_UP = 82,
+
+    SDL_SCANCODE_RETURN = 40,
+    SDL_SCANCODE_ESCAPE = 41,
 };
 
 // Translates the SDL key to a value of the type found in doomkeys.h
@@ -470,6 +481,18 @@ void I_BindInputVariables(void)
 #else
 #define WITH_SHIFT 0x8000
 #endif
+struct joypad_bits_t {
+    bool a: true;
+    bool b: true;
+    bool select: true;
+    bool start: true;
+    bool right: true;
+    bool left: true;
+    bool up: true;
+    bool down: true;
+};
+
+
 
 static void pico_key_down(int scancode, int keysym, int modifiers) {
     event_t event;
@@ -505,6 +528,63 @@ static void pico_key_up(int scancode, int keysym, int modifiers) {
     }
 }
 
+static struct joypad_bits_t gamepad_bits = {
+        .start = false,
+        .select = false,
+        .a = false,
+        .b = false,
+        .up = false,
+        .down = false,
+        .left = false,
+        .right = false
+};
+static struct joypad_bits_t gamepad_bits_previous = {
+        .start = false,
+        .select = false,
+        .a = false,
+        .b = false,
+        .up = false,
+        .down = false,
+        .left = false,
+        .right = false
+};
+
+static void update_button_state(int scancode, bool button_state, bool previous_button_state) {
+    if (button_state && !previous_button_state) {
+        pico_key_down(scancode, 0, 0);
+    } else if (!button_state && previous_button_state) {
+        pico_key_up(scancode, 0, 0);
+    }
+}
+
+static void update_button_state_with_shift(int scancode, bool button_state, bool previous_button_state) {
+    if (button_state && !previous_button_state) {
+        pico_key_down(scancode, 0, WITH_SHIFT);
+    } else if (!button_state && previous_button_state) {
+        pico_key_up(scancode, 0, WITH_SHIFT);
+    }
+}
+
+static void nespad_tick() {
+    nespad_read();
+
+    update_button_state(SDL_SCANCODE_LCTRL, gamepad_bits.a, gamepad_bits_previous.a);
+    update_button_state(SDL_SCANCODE_SPACE, gamepad_bits.b, gamepad_bits_previous.b);
+    update_button_state_with_shift(SDL_SCANCODE_LEFT, gamepad_bits.left, gamepad_bits_previous.left);
+    update_button_state_with_shift(SDL_SCANCODE_RIGHT, gamepad_bits.right, gamepad_bits_previous.right);
+    update_button_state_with_shift(SDL_SCANCODE_UP, gamepad_bits.up, gamepad_bits_previous.up);
+    update_button_state(SDL_SCANCODE_RIGHT, gamepad_bits.right, gamepad_bits_previous.right);
+    update_button_state(SDL_SCANCODE_RETURN, gamepad_bits.start, gamepad_bits_previous.start);
+    update_button_state(SDL_SCANCODE_ESCAPE, gamepad_bits.select, gamepad_bits_previous.select);
+
+    // TODO Cycle weapons on select, start+select = escape
+
+    gamepad_bits_previous = gamepad_bits;
+}
+
+
+
+
 #if PICO_NO_HARDWARE
 static void pico_quit(void) {
     exit(0);
@@ -518,11 +598,16 @@ void I_InputInit(void) {
     platform_quit = pico_quit;
 #elif USB_SUPPORT
     tusb_init();
+#define NES_GPIO_CLK 14
+#define NES_GPIO_DATA 16
+#define NES_GPIO_LAT 15
+    nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
     irq_set_priority(USBCTRL_IRQ, 0xc0);
 #endif
 }
 
 void I_GetEvent() {
+    nespad_tick();
 #if USB_SUPPORT
     tuh_task();
 #endif

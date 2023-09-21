@@ -1,4 +1,5 @@
 add_library(common_pico INTERFACE)
+add_subdirectory(drivers/nespad)
 target_sources(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/i_glob.c
         ${CMAKE_CURRENT_LIST_DIR}/i_input.c
@@ -36,7 +37,7 @@ if (PICO_ON_DEVICE)
             PICO_SCANVIDEO_PIXEL_BCOUNT=2
 
     )
-    target_link_libraries(common_pico INTERFACE  hardware_i2c)
+    target_link_libraries(common_pico INTERFACE  hardware_i2c nespad)
 endif()
 target_include_directories(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
