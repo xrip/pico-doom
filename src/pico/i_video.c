@@ -70,22 +70,22 @@ typedef struct __packed {
 #include "fonts/normal.h"
 
 static uint16_t ega_colors[] = {
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x00, 0x00, 0x00),         // 0: Black
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x00, 0x00, 0xa8),         // 1: Blue
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x00, 0xa8, 0x00),         // 2: Green
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x00, 0xa8, 0xa8),         // 3: Cyan
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xa8, 0x00, 0x00),         // 4: Red
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xa8, 0x00, 0xa8),         // 5: Magenta
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xa8, 0x54, 0x00),         // 6: Brown
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xa8, 0xa8, 0xa8),         // 7: Grey
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x54, 0x54, 0x54),         // 8: Dark grey
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x54, 0x54, 0xfe),         // 9: Bright blue
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x54, 0xfe, 0x54),         // 10: Bright green
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0x54, 0xfe, 0xfe),         // 11: Bright cyan
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xfe, 0x54, 0x54),         // 12: Bright red
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xfe, 0x54, 0xfe),         // 13: Bright magenta
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xfe, 0xfe, 0x54),         // 14: Yellow
-    PICO_SCANVIDEO_PIXEL_FROM_RGB8(0xfe, 0xfe, 0xfe),         // 15: Bright white
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x00 >> 6, 0x00 >> 6, 0x00 >> 6),         // 0: Black
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x00 >> 6, 0x00 >> 6, 0xa8 >> 6),         // 1: Blue
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x00 >> 6, 0xa8 >> 6, 0x00 >> 6),         // 2: Green
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x00 >> 6, 0xa8 >> 6, 0xa8 >> 6),         // 3: Cyan
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xa8 >> 6, 0x00 >> 6, 0x00 >> 6),         // 4: Red
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xa8 >> 6, 0x00 >> 6, 0xa8 >> 6),         // 5: Magenta
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xa8 >> 6, 0x54 >> 6, 0x00 >> 6),         // 6: Brown
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xa8 >> 6, 0xa8 >> 6, 0xa8 >> 6),         // 7: Grey
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x54 >> 6, 0x54 >> 6, 0x54 >> 6),         // 8: Dark grey
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x54 >> 6, 0x54 >> 6, 0xfe >> 6),         // 9: Bright blue
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x54 >> 6, 0xfe >> 6, 0x54 >> 6),         // 10: Bright green
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0x54 >> 6, 0xfe >> 6, 0xfe >> 6),         // 11: Bright cyan
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xfe >> 6, 0x54 >> 6, 0x54 >> 6),         // 12: Bright red
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xfe >> 6, 0x54 >> 6, 0xfe >> 6),         // 13: Bright magenta
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xfe >> 6, 0xfe >> 6, 0x54 >> 6),         // 14: Yellow
+    PICO_SCANVIDEO_PIXEL_FROM_RGB5(0xfe >> 6, 0xfe >> 6, 0xfe >> 6),         // 15: Bright white
 };
 #endif
 
@@ -150,7 +150,7 @@ static uint8_t *text_font_cpy;
 static uint32_t missing_scanline_data[] =
         {
 #if YELLOW_SUBMARINE
-                video_doom_offset_color_run | (PICO_SCANVIDEO_PIXEL_FROM_RGB8(255,255,0) << 16u),
+                video_doom_offset_color_run | (PICO_SCANVIDEO_PIXEL_FROM_RGB5(255 >> 6,255 >> 6,0) << 16u),
                 120 | (video_doom_offset_raw_1p << 16u),
 #endif
                 0u | (video_doom_offset_end_of_scanline_ALIGN << 16u)
@@ -879,7 +879,7 @@ void __noinline new_frame_init_overlays_palette_and_wipe() {
                         g = gammatable[usegamma-1][g];
                         b = gammatable[usegamma-1][b];
                     }
-                    palette[i] = PICO_SCANVIDEO_PIXEL_FROM_RGB8(r, g, b);
+                    palette[i] = PICO_SCANVIDEO_PIXEL_FROM_RGB5(b >> 6, g >> 6, r >>6);
                 }
             } else {
                 int mul, r0, g0, b0;
@@ -901,7 +901,7 @@ void __noinline new_frame_init_overlays_palette_and_wipe() {
                     r += ((r0 - r) * mul) >> 16;
                     g += ((g0 - g) * mul) >> 16;
                     b += ((b0 - b) * mul) >> 16;
-                    palette[i] = PICO_SCANVIDEO_PIXEL_FROM_RGB8(r, g, b);
+                    palette[i] = PICO_SCANVIDEO_PIXEL_FROM_RGB5(b >> 6, g >> 6, r >> 6);
                 }
             }
             next_pal = -1;

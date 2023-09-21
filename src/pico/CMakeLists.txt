@@ -21,6 +21,20 @@ if (PICO_ON_DEVICE)
     target_compile_definitions(common_pico INTERFACE
             PICO_HEAP_SIZE=0
             USE_ZONE_FOR_MALLOC=1
+
+            PICO_SCANVIDEO_SYNC_PIN_BASE=12
+            PICO_SCANVIDEO_HSYNC_PIN=12
+            PICO_SCANVIDEO_VSYNC_PIN=13
+            PICO_SCANVIDEO_ALPHA_PIN=-1
+            PICO_SCANVIDEO_COLOR_PIN_BASE=6
+            PICO_SCANVIDEO_COLOR_PIN_COUNT=6
+            PICO_SCANVIDEO_PIXEL_RSHIFT=0
+            PICO_SCANVIDEO_PIXEL_GSHIFT=2
+            PICO_SCANVIDEO_PIXEL_BSHIFT=4
+            PICO_SCANVIDEO_PIXEL_RCOUNT=2
+            PICO_SCANVIDEO_PIXEL_GCOUNT=2
+            PICO_SCANVIDEO_PIXEL_BCOUNT=2
+
     )
     target_link_libraries(common_pico INTERFACE  hardware_i2c)
 endif()
