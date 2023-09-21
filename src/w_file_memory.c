@@ -37,7 +37,7 @@
 #ifndef TINY_WAD_ADDR
 #error TINY_WAD_ADDR must be specified
 #endif
-#define wad_map_base ((const uint8_t *)TINY_WAD_ADDR)
+//#define wad_map_base ((const uint8_t *)TINY_WAD_ADDR)
 // simplest thing here is to use a feature, rather than a separate feature group
 #if WHD_SUPER_TINY
 #define ADDR_FNAME "WHX at " __XSTRING(TINY_WAD_ADDR)
@@ -54,6 +54,10 @@ bi_decl(bi_program_feature(ADDR_FNAME));
 #include "tiny.whd.h"
 #define wad_map_base tiny_whd
 #endif
+
+#include "tiny.whd.h"
+#define wad_map_base tiny_whd
+
 const uint8_t *whd_map_base = wad_map_base;
 #endif
 

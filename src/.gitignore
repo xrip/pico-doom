@@ -21,3 +21,5 @@ chocolate-setup
 *.appdata.xml
 tags
 TAGS
+
+tiny.whd.h
