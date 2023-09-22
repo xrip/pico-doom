@@ -43,6 +43,7 @@ bi_decl(bi_program_feature("USB keyboard support"))
 bi_decl(bi_program_feature("USB mouse support"))
 #endif
 #include "ps2.h"
+#include "nesjoy.h"
 #include <pico/stdlib.h>
 
 static const int scancode_translate_table[] = SCANCODE_TO_KEYS_ARRAY;
@@ -367,6 +368,8 @@ struct keyboard_bits_t {
     bool left: true;
     bool up: true;
     bool down: true;
+
+    bool nextwpn: true;
 };
 
 struct keyboard_bits_t keyboard_bits = {};
@@ -379,18 +382,28 @@ static void update_button_state(int scancode, bool button_state, bool previous_b
         pico_key_up(scancode);
     }
 }
+/*
+ #define NES_PAD_UP		(data_joy & 0x08)
+#define NES_PAD_DOWN	(data_joy & 0x04)
+#define NES_PAD_LEFT	(data_joy & 0x02)
+#define NES_PAD_RIGHT	(data_joy & 0x01)
+#define NES_PAD_A		(data_joy & 0x80)
+#define NES_PAD_B		(data_joy & 0x40)
+#define NES_PAD_SELECT	(data_joy & 0x20)
+#define NES_PAD_START	(data_joy & 0x10)
 
+ */
 static void ps2kbd_tick() {
-    keyboard_bits.space = KBD_SPACE;
-    keyboard_bits.ctrl = KBD_L_CTRL || KBD_R_CTRL;
+    keyboard_bits.space = KBD_SPACE || NES_PAD_A;
+    keyboard_bits.ctrl = KBD_L_CTRL || KBD_R_CTRL || NES_PAD_B ;
 
-    keyboard_bits.enter = KBD_ENTER;
-    keyboard_bits.escape = KBD_ESC;
+    keyboard_bits.enter = KBD_ENTER || NES_PAD_START;
+    keyboard_bits.escape = KBD_ESC || (NES_PAD_SELECT && NES_PAD_START);
 
-    keyboard_bits.up = KBD_UP;
-    keyboard_bits.down = KBD_DOWN;
-    keyboard_bits.left = KBD_LEFT;
-    keyboard_bits.right = KBD_RIGHT;
+    keyboard_bits.up = KBD_UP || NES_PAD_UP;
+    keyboard_bits.down = KBD_DOWN || NES_PAD_DOWN;
+    keyboard_bits.left = KBD_LEFT || NES_PAD_LEFT;
+    keyboard_bits.right = KBD_RIGHT || NES_PAD_RIGHT;
 
     keyboard_bits.f11 = KBD_F11;
     keyboard_bits._0 = KBD_0;
@@ -403,6 +416,10 @@ static void ps2kbd_tick() {
     keyboard_bits._7 = KBD_7;
     keyboard_bits._8 = KBD_8;
     keyboard_bits._9 = KBD_9;
+
+    keyboard_bits.nextwpn = NES_PAD_SELECT;
+
+    update_button_state(SDL_SCANCODE_SLASH, keyboard_bits.nextwpn, keyboard_bits_prev.nextwpn);
 
     update_button_state(SDL_SCANCODE_LCTRL, keyboard_bits.ctrl, keyboard_bits_prev.ctrl);
     update_button_state(SDL_SCANCODE_SPACE, keyboard_bits.space, keyboard_bits_prev.space);
@@ -443,6 +460,7 @@ static void pico_quit(void) {
 
 void I_InputInit(void) {
     Init_kbd();
+    Init_NesJoystick();
 #if PICO_NO_HARDWARE
     platform_key_down = pico_key_down;
     platform_key_up = pico_key_up;
@@ -459,6 +477,7 @@ void I_InputInit(void) {
 #include "deh_str.h"
 void I_GetEvent() {
     decode_kbd();
+    decode_joy();
 #if USB_SUPPORT
     tuh_task();
 #endif

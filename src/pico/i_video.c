@@ -121,7 +121,7 @@ boolean screenvisible = true;
 
 boolean screensaver_mode = false;
 
-isb_int8_t usegamma = 0;
+isb_int8_t usegamma = 1;
 
 // Joystick/gamepad hysteresis
 unsigned int joywait = 0;

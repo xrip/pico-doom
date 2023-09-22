@@ -1,6 +1,7 @@
 add_library(common_pico INTERFACE)
 
 add_subdirectory(drivers/ps2)
+add_subdirectory(drivers/nesjoy)
 
 target_sources(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/i_glob.c
@@ -40,7 +41,7 @@ if (PICO_ON_DEVICE)
             PICO_SCANVIDEO_PIXEL_GCOUNT=2
             PICO_SCANVIDEO_PIXEL_BCOUNT=2
     )
-    target_link_libraries(common_pico INTERFACE  hardware_i2c ps2)
+    target_link_libraries(common_pico INTERFACE  hardware_i2c ps2 nesjoy)
 endif()
 target_include_directories(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
