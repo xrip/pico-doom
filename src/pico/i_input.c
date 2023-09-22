@@ -42,6 +42,8 @@
 bi_decl(bi_program_feature("USB keyboard support"))
 bi_decl(bi_program_feature("USB mouse support"))
 #endif
+#include "ps2.h"
+#include <pico/stdlib.h>
 
 static const int scancode_translate_table[] = SCANCODE_TO_KEYS_ARRAY;
 
@@ -119,18 +121,6 @@ int vanilla_keyboard_mapping = true;
 int mouse_acceleration = 2;
 int mouse_threshold = 10;
 #endif
-
-enum {
-    SDL_SCANCODE_SPACE = 44,
-    SDL_SCANCODE_LCTRL = 224,
-    SDL_SCANCODE_LSHIFT = 225,
-    SDL_SCANCODE_LALT = 226, /**< alt, option */
-    SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
-    SDL_SCANCODE_RCTRL = 228,
-    SDL_SCANCODE_RSHIFT = 229,
-    SDL_SCANCODE_RALT = 230, /**< alt gr, option */
-    SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
-};
 
 // Translates the SDL key to a value of the type found in doomkeys.h
 int TranslateKey(int scancode)
@@ -354,6 +344,97 @@ static void pico_key_up(int scancode) {
     }
 }
 
+struct keyboard_bits_t {
+    bool _1: true;
+    bool _2: true;
+    bool _3: true;
+    bool _4: true;
+    bool _5: true;
+    bool _6: true;
+    bool _7: true;
+    bool _8: true;
+    bool _9: true;
+    bool _0: true;
+
+    bool f11: true;
+
+    bool shift: true;
+    bool ctrl: true;
+    bool space: true;
+    bool escape: true;
+    bool enter: true;
+    bool right: true;
+    bool left: true;
+    bool up: true;
+    bool down: true;
+};
+
+struct keyboard_bits_t keyboard_bits = {};
+struct keyboard_bits_t keyboard_bits_prev = {};
+
+static void update_button_state(int scancode, bool button_state, bool previous_button_state) {
+    if (button_state && !previous_button_state) {
+        pico_key_down(scancode, 0);
+    } else if (!button_state && previous_button_state) {
+        pico_key_up(scancode);
+    }
+}
+
+static void ps2kbd_tick() {
+    keyboard_bits.space = KBD_SPACE;
+    keyboard_bits.ctrl = KBD_L_CTRL || KBD_R_CTRL;
+
+    keyboard_bits.enter = KBD_ENTER;
+    keyboard_bits.escape = KBD_ESC;
+
+    keyboard_bits.up = KBD_UP;
+    keyboard_bits.down = KBD_DOWN;
+    keyboard_bits.left = KBD_LEFT;
+    keyboard_bits.right = KBD_RIGHT;
+
+    keyboard_bits.f11 = KBD_F11;
+    keyboard_bits._0 = KBD_0;
+    keyboard_bits._1 = KBD_1;
+    keyboard_bits._2 = KBD_2;
+    keyboard_bits._3 = KBD_3;
+    keyboard_bits._4 = KBD_4;
+    keyboard_bits._5 = KBD_5;
+    keyboard_bits._6 = KBD_6;
+    keyboard_bits._7 = KBD_7;
+    keyboard_bits._8 = KBD_8;
+    keyboard_bits._9 = KBD_9;
+
+    update_button_state(SDL_SCANCODE_LCTRL, keyboard_bits.ctrl, keyboard_bits_prev.ctrl);
+    update_button_state(SDL_SCANCODE_SPACE, keyboard_bits.space, keyboard_bits_prev.space);
+
+    update_button_state(SDL_SCANCODE_LEFT, keyboard_bits.left, keyboard_bits_prev.left);
+    update_button_state(SDL_SCANCODE_RIGHT, keyboard_bits.right, keyboard_bits_prev.right);
+    update_button_state(SDL_SCANCODE_UP, keyboard_bits.up, keyboard_bits_prev.up);
+    update_button_state(SDL_SCANCODE_DOWN, keyboard_bits.down, keyboard_bits_prev.down);
+
+    update_button_state(SDL_SCANCODE_RETURN, keyboard_bits.enter, keyboard_bits_prev.enter);
+    update_button_state(SDL_SCANCODE_ESCAPE, keyboard_bits.escape, keyboard_bits_prev.escape);
+
+    update_button_state(SDL_SCANCODE_0, keyboard_bits._0, keyboard_bits_prev._0);
+    update_button_state(SDL_SCANCODE_1, keyboard_bits._1, keyboard_bits_prev._1);
+    update_button_state(SDL_SCANCODE_2, keyboard_bits._2, keyboard_bits_prev._2);
+    update_button_state(SDL_SCANCODE_3, keyboard_bits._3, keyboard_bits_prev._3);
+    update_button_state(SDL_SCANCODE_4, keyboard_bits._4, keyboard_bits_prev._4);
+    update_button_state(SDL_SCANCODE_5, keyboard_bits._5, keyboard_bits_prev._5);
+    update_button_state(SDL_SCANCODE_6, keyboard_bits._6, keyboard_bits_prev._6);
+    update_button_state(SDL_SCANCODE_7, keyboard_bits._7, keyboard_bits_prev._7);
+    update_button_state(SDL_SCANCODE_8, keyboard_bits._8, keyboard_bits_prev._8);
+    update_button_state(SDL_SCANCODE_9, keyboard_bits._9, keyboard_bits_prev._9);
+
+    update_button_state(SDL_SCANCODE_F11, keyboard_bits.f11, keyboard_bits_prev.f11);
+
+
+
+    keyboard_bits_prev = keyboard_bits;
+
+}
+
+
 #if PICO_NO_HARDWARE
 static void pico_quit(void) {
     exit(0);
@@ -361,6 +442,7 @@ static void pico_quit(void) {
 #endif
 
 void I_InputInit(void) {
+    Init_kbd();
 #if PICO_NO_HARDWARE
     platform_key_down = pico_key_down;
     platform_key_up = pico_key_up;
@@ -369,21 +451,39 @@ void I_InputInit(void) {
     tusb_init();
     irq_set_priority(USBCTRL_IRQ, 0xc0);
 #endif
-}
 
+//    gpio_init(1);
+//    gpio_set_dir(1,GPIO_IN);
+//    gpio_pull_up(1);
+}
+#include "deh_str.h"
 void I_GetEvent() {
+    decode_kbd();
 #if USB_SUPPORT
     tuh_task();
 #endif
+
+    ps2kbd_tick();
+
+  //auto state = !KBD_PRESS;
+/*  if (KBD_PRESS) {
+        pico_key_down(SDL_SCANCODE_ESCAPE, 0);
+        pico_key_up(SDL_SCANCODE_ESCAPE);
+    }
+    */
+    //if (KBD_RELEASE) pico_key_up(SDL_SCANCODE_ESCAPE);
+
     return I_GetEventTimeout(50);
 }
 
 void I_GetEventTimeout(int key_timeout) {
 #if PICO_ON_DEVICE && !NO_USE_UART
+
     if (uart_is_readable(uart_default)) {
         char c = uart_getc(uart_default);
         if (c == 26 && uart_is_readable_within_us(uart_default, key_timeout)) {
             c = uart_getc(uart_default);
+
             static int modifiers = 0;
             switch (c) {
                 case 0:

@@ -1,4 +1,7 @@
 add_library(common_pico INTERFACE)
+
+add_subdirectory(drivers/ps2)
+
 target_sources(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/i_glob.c
         ${CMAKE_CURRENT_LIST_DIR}/i_input.c
@@ -22,6 +25,8 @@ if (PICO_ON_DEVICE)
             PICO_HEAP_SIZE=0
             USE_ZONE_FOR_MALLOC=1
 
+            PICO_SCANVIDEO_ENABLE_CLOCK_PIN=0
+            PICO_SCANVIDEO_ENABLE_DEN_PIN=0
             PICO_SCANVIDEO_SYNC_PIN_BASE=12
             PICO_SCANVIDEO_HSYNC_PIN=12
             PICO_SCANVIDEO_VSYNC_PIN=13
@@ -35,7 +40,7 @@ if (PICO_ON_DEVICE)
             PICO_SCANVIDEO_PIXEL_GCOUNT=2
             PICO_SCANVIDEO_PIXEL_BCOUNT=2
     )
-    target_link_libraries(common_pico INTERFACE  hardware_i2c)
+    target_link_libraries(common_pico INTERFACE  hardware_i2c ps2)
 endif()
 target_include_directories(common_pico INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
@@ -46,6 +51,10 @@ target_include_directories(common_pico INTERFACE
 target_compile_definitions(common_pico INTERFACE
         PICO_AUDIO_I2S_PIO=1
         PICO_AUDIO_I2S_DMA_IRQ=1
+        NO_USE_UART=1
+        NO_USE_NET=1
+        #PICO_DEFAULT_UART_TX_PIN=0
+        #PICO_DEFAULT_UART_RX_PIN=1
         )
 
 pico_generate_pio_header(common_pico ${CMAKE_CURRENT_LIST_DIR}/video_doom.pio)
