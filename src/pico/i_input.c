@@ -22,6 +22,7 @@
 //#include "SDL_keycode.h"
 #include <doom/sounds.h>
 #include <doom/s_sound.h>
+#include <doom/doomstat.h>
 #include "pico.h"
 #include "doomkeys.h"
 #include "doomtype.h"
@@ -31,17 +32,16 @@
 #include "i_video.h"
 #include "m_argv.h"
 #include "m_config.h"
+#include "m_controls.h"
 #include "hardware/uart.h"
 #include <stdlib.h>
 #if USB_SUPPORT
 #include "pico/binary_info.h"
 #include "tusb.h"
 #include "hardware/irq.h"
-bi_decl(bi_program_feature("USB keyboard support"));
+bi_decl(bi_program_feature("USB keyboard support"))
+bi_decl(bi_program_feature("USB mouse support"))
 #endif
-// MURM
-#include "nespad.h"
-#include "hardware/clocks.h"
 
 static const int scancode_translate_table[] = SCANCODE_TO_KEYS_ARRAY;
 
@@ -97,7 +97,7 @@ static unsigned int mouse_button_state = 0;
 // Disallow mouse and joystick movement to cause forward/backward
 // motion.  Specified with the '-novert' command line parameter.
 // This is an int to allow saving to config file
-int novert = 0;
+static int novert = 0;
 
 // If true, keyboard mapping is ignored, like in Vanilla Doom.
 // The sensible thing to do is to disable this if you have a non-US
@@ -116,7 +116,7 @@ int vanilla_keyboard_mapping = true;
 // the values exceed the value of mouse_threshold, they are multiplied
 // by mouse_acceleration to increase the speed.
 #if !NO_USE_MOUSE
-float mouse_acceleration = 2.0;
+int mouse_acceleration = 2;
 int mouse_threshold = 10;
 #endif
 
@@ -130,14 +130,6 @@ enum {
     SDL_SCANCODE_RSHIFT = 229,
     SDL_SCANCODE_RALT = 230, /**< alt gr, option */
     SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
-
-    SDL_SCANCODE_RIGHT = 79,
-    SDL_SCANCODE_LEFT = 80,
-    SDL_SCANCODE_DOWN = 81,
-    SDL_SCANCODE_UP = 82,
-
-    SDL_SCANCODE_RETURN = 40,
-    SDL_SCANCODE_ESCAPE = 41,
 };
 
 // Translates the SDL key to a value of the type found in doomkeys.h
@@ -308,166 +300,12 @@ void I_StopTextInput(void)
     }
 }
 
-#if !NO_USE_MOUSE
-static void UpdateMouseButtonState(unsigned int button, boolean on)
-{
-    static event_t event;
-
-    if (button < SDL_BUTTON_LEFT || button > MAX_MOUSE_BUTTONS)
-    {
-        return;
-    }
-
-    // Note: button "0" is left, button "1" is right,
-    // button "2" is middle for Doom.  This is different
-    // to how SDL sees things.
-
-    switch (button)
-    {
-        case SDL_BUTTON_LEFT:
-            button = 0;
-            break;
-
-        case SDL_BUTTON_RIGHT:
-            button = 1;
-            break;
-
-        case SDL_BUTTON_MIDDLE:
-            button = 2;
-            break;
-
-        default:
-            // SDL buttons are indexed from 1.
-            --button;
-            break;
-    }
-
-    // Turn bit representing this button on or off.
-
-    if (on)
-    {
-        mouse_button_state |= (1 << button);
-    }
-    else
-    {
-        mouse_button_state &= ~(1 << button);
-    }
-
-    // Post an event with the new button state.
-
-    event.type = ev_mouse;
-    event.data1 = mouse_button_state;
-    event.data2 = event.data3 = 0;
-    D_PostEvent(&event);
-}
-
-static void MapMouseWheelToButtons(SDL_MouseWheelEvent *wheel)
-{
-    // SDL2 distinguishes button events from mouse wheel events.
-    // We want to treat the mouse wheel as two buttons, as per
-    // SDL1
-    static event_t up, down;
-    int button;
-
-    if (wheel->y <= 0)
-    {   // scroll down
-        button = 4;
-    }
-    else
-    {   // scroll up
-        button = 3;
-    }
-
-    // post a button down event
-    mouse_button_state |= (1 << button);
-    down.type = ev_mouse;
-    down.data1 = mouse_button_state;
-    down.data2 = down.data3 = 0;
-    D_PostEvent(&down);
-
-    // post a button up event
-    mouse_button_state &= ~(1 << button);
-    up.type = ev_mouse;
-    up.data1 = mouse_button_state;
-    up.data2 = up.data3 = 0;
-    D_PostEvent(&up);
-}
-
-void I_HandleMouseEvent(SDL_Event *sdlevent)
-{
-    switch (sdlevent->type)
-    {
-        case SDL_MOUSEBUTTONDOWN:
-            UpdateMouseButtonState(sdlevent->button.button, true);
-            break;
-
-        case SDL_MOUSEBUTTONUP:
-            UpdateMouseButtonState(sdlevent->button.button, false);
-            break;
-
-        case SDL_MOUSEWHEEL:
-            MapMouseWheelToButtons(&(sdlevent->wheel));
-            break;
-
-        default:
-            break;
-    }
-}
-
-static int AccelerateMouse(int val)
-{
-    if (val < 0)
-        return -AccelerateMouse(-val);
-
-    if (val > mouse_threshold)
-    {
-        return (int)((val - mouse_threshold) * mouse_acceleration + mouse_threshold);
-    }
-    else
-    {
-        return val;
-    }
-}
-
-//
-// Read the change in mouse state to generate mouse motion events
-//
-// This is to combine all mouse movement for a tic into one mouse
-// motion event.
-void I_ReadMouse(void)
-{
-    int x, y;
-    event_t ev;
-
-    SDL_GetRelativeMouseState(&x, &y);
-
-    if (x != 0 || y != 0)
-    {
-        ev.type = ev_mouse;
-        ev.data1 = mouse_button_state;
-        ev.data2 = AccelerateMouse(x);
-
-        if (!novert)
-        {
-            ev.data3 = -AccelerateMouse(y);
-        }
-        else
-        {
-            ev.data3 = 0;
-        }
-
-        // XXX: undefined behaviour since event is scoped to
-        // this function
-        D_PostEvent(&ev);
-    }
-}
-#endif
 
 // Bind all variables controlling input options.
 void I_BindInputVariables(void)
 {
 #if !NO_USE_MOUSE
-    M_BindFloatVariable("mouse_acceleration",      &mouse_acceleration);
+    M_BindIntVariable("mouse_acceleration",        &mouse_acceleration);
     M_BindIntVariable("mouse_threshold",           &mouse_threshold);
 #endif
 #if !USE_VANILLA_KEYBOARD_MAPPING_ONLY
@@ -481,20 +319,8 @@ void I_BindInputVariables(void)
 #else
 #define WITH_SHIFT 0x8000
 #endif
-struct joypad_bits_t {
-    bool a: true;
-    bool b: true;
-    bool select: true;
-    bool start: true;
-    bool right: true;
-    bool left: true;
-    bool up: true;
-    bool down: true;
-};
 
-
-
-static void pico_key_down(int scancode, int keysym, int modifiers) {
+static void pico_key_down(int scancode, int modifiers) {
     event_t event;
     event.type = ev_keydown;
     event.data1 = TranslateKey(scancode);
@@ -511,7 +337,7 @@ static void pico_key_down(int scancode, int keysym, int modifiers) {
     }
 }
 
-static void pico_key_up(int scancode, int keysym, int modifiers) {
+static void pico_key_up(int scancode) {
     event_t event;
     event.type = ev_keyup;
     event.data1 = TranslateKey(scancode);
@@ -528,63 +354,6 @@ static void pico_key_up(int scancode, int keysym, int modifiers) {
     }
 }
 
-static struct joypad_bits_t gamepad_bits = {
-        .start = false,
-        .select = false,
-        .a = false,
-        .b = false,
-        .up = false,
-        .down = false,
-        .left = false,
-        .right = false
-};
-static struct joypad_bits_t gamepad_bits_previous = {
-        .start = false,
-        .select = false,
-        .a = false,
-        .b = false,
-        .up = false,
-        .down = false,
-        .left = false,
-        .right = false
-};
-
-static void update_button_state(int scancode, bool button_state, bool previous_button_state) {
-    if (button_state && !previous_button_state) {
-        pico_key_down(scancode, 0, 0);
-    } else if (!button_state && previous_button_state) {
-        pico_key_up(scancode, 0, 0);
-    }
-}
-
-static void update_button_state_with_shift(int scancode, bool button_state, bool previous_button_state) {
-    if (button_state && !previous_button_state) {
-        pico_key_down(scancode, 0, WITH_SHIFT);
-    } else if (!button_state && previous_button_state) {
-        pico_key_up(scancode, 0, WITH_SHIFT);
-    }
-}
-
-static void nespad_tick() {
-    nespad_read();
-
-    update_button_state(SDL_SCANCODE_LCTRL, gamepad_bits.a, gamepad_bits_previous.a);
-    update_button_state(SDL_SCANCODE_SPACE, gamepad_bits.b, gamepad_bits_previous.b);
-    update_button_state_with_shift(SDL_SCANCODE_LEFT, gamepad_bits.left, gamepad_bits_previous.left);
-    update_button_state_with_shift(SDL_SCANCODE_RIGHT, gamepad_bits.right, gamepad_bits_previous.right);
-    update_button_state_with_shift(SDL_SCANCODE_UP, gamepad_bits.up, gamepad_bits_previous.up);
-    update_button_state(SDL_SCANCODE_RIGHT, gamepad_bits.right, gamepad_bits_previous.right);
-    update_button_state(SDL_SCANCODE_RETURN, gamepad_bits.start, gamepad_bits_previous.start);
-    update_button_state(SDL_SCANCODE_ESCAPE, gamepad_bits.select, gamepad_bits_previous.select);
-
-    // TODO Cycle weapons on select, start+select = escape
-
-    gamepad_bits_previous = gamepad_bits;
-}
-
-
-
-
 #if PICO_NO_HARDWARE
 static void pico_quit(void) {
     exit(0);
@@ -598,16 +367,11 @@ void I_InputInit(void) {
     platform_quit = pico_quit;
 #elif USB_SUPPORT
     tusb_init();
-#define NES_GPIO_CLK 14
-#define NES_GPIO_DATA 16
-#define NES_GPIO_LAT 15
-    nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
     irq_set_priority(USBCTRL_IRQ, 0xc0);
 #endif
 }
 
 void I_GetEvent() {
-    nespad_tick();
 #if USB_SUPPORT
     tuh_task();
 #endif
@@ -628,7 +392,7 @@ void I_GetEventTimeout(int key_timeout) {
                         if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT) {
                             modifiers |= WITH_SHIFT;
                         }
-                        pico_key_down(scancode, 0, modifiers);
+                        pico_key_down(scancode, modifiers);
                     }
                     return;
                 case 1:
@@ -637,7 +401,7 @@ void I_GetEventTimeout(int key_timeout) {
                         if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT) {
                             modifiers &= ~WITH_SHIFT;
                         }
-                        pico_key_up(scancode, 0, modifiers);
+                        pico_key_up(scancode);
                     }
                     return;
                 case 2:
@@ -677,6 +441,13 @@ static void process_kbd_report(hid_keyboard_report_t const *report);
 static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
 
+static bool is_sandio_mouse(uint8_t dev_addr)
+{
+    uint16_t vid, pid;
+    tuh_vid_pid_get(dev_addr, &vid, &pid);
+    return vid ==0x19ca && pid == 0x0001; // Mindtribe Sandio 3D HID Mouse
+}
+
 // Invoked when device with hid interface is mounted
 // Report descriptor is also available for use. tuh_hid_parse_report_descriptor()
 // can be used to parse common/simple enough descriptor.
@@ -690,7 +461,6 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
     const char* protocol_str[] = { "None", "Keyboard", "Mouse" };
     uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
     debug_printf("HID Interface Protocol = %s\r\n", protocol_str[itf_protocol]);
-//    printf("%d USB: device %d connected, protocol %s\n", time_us_32() - t0 , dev_addr, protocol_str[itf_protocol]);
 
     // By default host stack will use activate boot protocol on supported interface.
     // Therefore for this simple example, we only need to parse generic report descriptor (with built-in parser)
@@ -700,12 +470,29 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
         debug_printf("HID has %u reports \r\n", hid_info[instance].report_count);
     }
 
-    // request to receive report
-    // tuh_hid_report_received_cb() will be invoked when report is available
-    if ( !tuh_hid_receive_report(dev_addr, instance) )
+    const bool is_sandio = is_sandio_mouse(dev_addr);
+
+    if (itf_protocol != HID_ITF_PROTOCOL_NONE || is_sandio)
     {
-        debug_printf("Error: cannot request to receive report\r\n");
+        // request to receive report
+        // tuh_hid_report_received_cb() will be invoked when report is available
+        if (!tuh_hid_receive_report(dev_addr, instance))
+        {
+            debug_printf("Error: cannot request to receive report\r\n");
+        }
     }
+
+    if (itf_protocol == HID_ITF_PROTOCOL_MOUSE)
+    {
+        key_nextweapon = '\'';
+        key_prevweapon = '/';
+    }
+
+    if (is_sandio) {
+        novert = 1;
+        mouseSensitivity <<= 1;
+    }
+
 }
 
 // Invoked when device with hid interface is un-mounted
@@ -724,14 +511,14 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
     {
         case HID_ITF_PROTOCOL_KEYBOARD:
             TU_LOG2("HID receive boot keyboard report\r\n");
-            process_kbd_report( (hid_keyboard_report_t const*) report );
+            process_kbd_report((hid_keyboard_report_t const*)report);
             break;
 
 #if !NO_USE_MOUSE
-            case HID_ITF_PROTOCOL_MOUSE:
-      TU_LOG2("HID receive boot mouse report\r\n");
-      process_mouse_report( (hid_mouse_report_t const*) report );
-    break;
+        case HID_ITF_PROTOCOL_MOUSE:
+            TU_LOG2("HID receive boot mouse report\r\n");
+            process_mouse_report((hid_mouse_report_t const*)report);
+            break;
 #endif
 
         default:
@@ -741,7 +528,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
     }
 
     // continue to request to receive report
-    if ( !tuh_hid_receive_report(dev_addr, instance) )
+    if (!tuh_hid_receive_report(dev_addr, instance))
     {
         debug_printf("Error: cannot request to receive report\r\n");
     }
@@ -765,10 +552,16 @@ static inline bool find_key_in_report(hid_keyboard_report_t const *report, uint8
 static void check_mod(int mod, int prev_mod, int mask, int scancode) {
     if ((mod^prev_mod)&mask) {
         if (mod & mask)
-            pico_key_down(scancode, 0, 0);
+            pico_key_down(scancode, 0);
         else
-            pico_key_up(scancode, 0, 0);
+            pico_key_up(scancode);
     }
+}
+
+static bool caps_lock = false;
+static int maybe_with_shift(bool is_shift)
+{
+    return ((is_shift && !caps_lock) || (!is_shift && caps_lock)) ? WITH_SHIFT : 0;
 }
 
 static void process_kbd_report(hid_keyboard_report_t const *report)
@@ -778,16 +571,23 @@ static void process_kbd_report(hid_keyboard_report_t const *report)
     //------------- example code ignore control (non-printable) key affects -------------//
     for(uint8_t i=0; i<6; i++)
     {
-        if ( report->keycode[i] )
+        if (report->keycode[i])
         {
-            if ( find_key_in_report(&prev_report, report->keycode[i]) )
+            if (find_key_in_report(&prev_report, report->keycode[i]))
             {
                 // exist in previous report means the current key is holding
-            }else
+            }
+            else
             {
                 // not existed in previous report means the current key is pressed
                 bool const is_shift = report->modifier & (KEYBOARD_MODIFIER_LEFTSHIFT | KEYBOARD_MODIFIER_RIGHTSHIFT);
-                pico_key_down(report->keycode[i], 0, is_shift ? WITH_SHIFT : 0);
+                pico_key_down(report->keycode[i], maybe_with_shift(is_shift));
+                if (report->keycode[i] == HID_KEY_CAPS_LOCK)
+                {
+                    caps_lock = !caps_lock;
+                    if (caps_lock) pico_key_down(SDL_SCANCODE_RSHIFT, 0);
+                    else pico_key_up(SDL_SCANCODE_RSHIFT);
+                }
             }
         }
         // Check for key depresses (i.e. was present in prev report but not here)
@@ -795,8 +595,7 @@ static void process_kbd_report(hid_keyboard_report_t const *report)
             // If not present in the current report then depressed
             if (!find_key_in_report(report, prev_report.keycode[i]))
             {
-                bool const is_shift = report->modifier & (KEYBOARD_MODIFIER_LEFTSHIFT | KEYBOARD_MODIFIER_RIGHTSHIFT);
-                pico_key_up(prev_report.keycode[i], 0, is_shift ? WITH_SHIFT : 0);
+                pico_key_up(prev_report.keycode[i]);
             }
         }
     }
@@ -820,22 +619,164 @@ static void process_kbd_report(hid_keyboard_report_t const *report)
 //--------------------------------------------------------------------+
 
 #if !NO_USE_MOUSE
+static int accel_mouse(int val)
+{
+    if (val < 0) return -accel_mouse(-val);
+    return val > mouse_threshold ?
+        (val - mouse_threshold) * mouse_acceleration + mouse_threshold : val;
+}
+
 static void process_mouse_report(hid_mouse_report_t const * report)
 {
     static hid_mouse_report_t prev_report = { 0 };
+    static uint8_t weapon_cycle = 0;
 
-    uint8_t button_changed_mask = report->buttons ^ prev_report.buttons;
-    if ( button_changed_mask & report->buttons)
+    uint8_t buttons_changed = report->buttons ^ prev_report.buttons;
+
+    // special forward and backward keys
+    if (buttons_changed)
     {
-        debug_printf(" %c%c%c ",
-                     report->buttons & MOUSE_BUTTON_LEFT   ? 'L' : '-',
-                     report->buttons & MOUSE_BUTTON_MIDDLE ? 'M' : '-',
-                     report->buttons & MOUSE_BUTTON_RIGHT  ? 'R' : '-');
+        static const uint8_t mouse_synth_keys[] = {
+            MOUSE_BUTTON_FORWARD, HID_KEY_ARROW_UP,
+            MOUSE_BUTTON_BACKWARD, HID_KEY_ARROW_DOWN,
+        };
+        for(int i=0; i < count_of(mouse_synth_keys); i+= 2)
+        {
+            uint8_t button = mouse_synth_keys[i];
+            uint8_t key = mouse_synth_keys[i+1];
+            if (report->buttons & button && !(prev_report.buttons & button)) pico_key_down(key, maybe_with_shift(false));
+            if (!(report->buttons & button) && prev_report.buttons & button) pico_key_up(key);
+        }
     }
 
-//    cursor_movement(report->x, report->y, report->wheel);
+    // mouse movement and first 3 buttons
+    if (report->x != 0 || (!novert && report->y != 0) || buttons_changed)
+    {
+        event_t event;
+        event.type = ev_mouse;
+        event.data1 = report->buttons & 7;
+        event.data2 = accel_mouse(report->x);
+        event.data3 = novert ? 0 : -accel_mouse(report->y);
+        D_PostEvent(&event);
+    }
+
+    // naive mouse wheel handling yet it works
+    if (weapon_cycle) pico_key_up(weapon_cycle);
+    if (report->wheel)
+    {
+        weapon_cycle = report->wheel > 0 ? HID_KEY_SLASH : HID_KEY_APOSTROPHE;
+        pico_key_down(weapon_cycle, 0);
+    }
+    else
+    {
+        weapon_cycle = 0;
+    }
+
+    prev_report = *report;
 }
 #endif
+
+
+#define TR 0x01
+#define TF 0x02
+#define TL 0x04
+#define TB 0x08
+#define RU (0x01 << 4)
+#define RD (0x02 << 4)
+#define RF (0x04 << 4)
+#define RB (0x08 << 4)
+#define LF (0x01 << 8)
+#define LD (0x02 << 8)
+#define LB (0x04 << 8)
+#define LU (0x08 << 8)
+
+struct rule {
+    uint16_t mask;
+    uint8_t code;
+};
+
+static const struct rule *rules = (struct rule[]){
+    {TF, HID_KEY_ARROW_UP},
+    {TB, HID_KEY_ARROW_DOWN},
+    {TL, HID_KEY_COMMA},
+    {TR, HID_KEY_PERIOD},
+    {RF, HID_KEY_SPACE},
+    {RB, HID_KEY_TAB},
+    {RD, HID_KEY_ENTER},
+    {RU, HID_KEY_ESCAPE},
+    {LF, HID_KEY_SLASH},
+    {LB, HID_KEY_APOSTROPHE},
+    {LD, HID_KEY_Y},
+    {LU, HID_KEY_N},
+    {0, 0},
+};
+
+struct sandio_state {
+    unsigned char top, right, left;
+};
+
+
+struct __attribute__ ((__packed__)) sandio_encoded_state {
+    uint8_t constant;
+    uint8_t dpi;
+    uint8_t top;
+    uint8_t right;
+    uint8_t left;
+    uint8_t magic_hi;
+    uint8_t magic_lo;
+};
+
+unsigned char sandio_decode_button(uint8_t encoded, uint8_t off) {
+    uint8_t val = encoded - off;
+    return (unsigned char)(val & 0xF0 ? 0 : val & 0x0F);
+}
+
+/* buttons state is sent "encrypted"
+ * thanks to https://github.com/EssentialNPC/SandioKeyMapper/blob/6bf5069cb02822964217b78aaedca098281208f2/GetRIData.cpp#L454
+ */
+struct sandio_state sandio_decode(const void *_encoded) {
+    const struct sandio_encoded_state *encoded = _encoded;
+
+    uint16_t magic = ((uint16_t)encoded->magic_hi) << 8 | encoded->magic_lo;
+    uint8_t off = 240 * ((21 * (uint32_t)magic + 7) % 2048) / 2048;
+
+    struct sandio_state decoded = {
+        .top   = sandio_decode_button(encoded->top, off),
+        .right = sandio_decode_button(encoded->right, off),
+        .left  = sandio_decode_button(encoded->left, off),
+    };
+
+    return decoded;
+}
+
+static uint16_t activated = 0, history = 0;
+static void process_multi_axis_controller_report(uint8_t const* report, uint16_t len)
+{
+    if (len != 7) return;
+
+    const struct sandio_state state = sandio_decode(report);
+
+    uint16_t packed = state.top | (state.right << 4) | (state.left << 8);
+    if (packed == history) {
+        return;
+    }
+    history = packed;
+    for (int i = 0;; ++i) {
+        const struct rule r = rules[i];
+        if (!r.mask) {
+            break; // end of rules
+        }
+        if (packed & r.mask & ~activated) {
+            pico_key_down(r.code, maybe_with_shift(false));
+            activated |= r.mask;
+        }
+        if (~packed & r.mask & activated) {
+            pico_key_up(r.code);
+            activated &= ~r.mask;
+        }
+    }
+    pico_key_down(SDL_SCANCODE_RSHIFT, 0); // always run
+}
 
 //--------------------------------------------------------------------+
 // Generic Report
@@ -895,12 +836,17 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
                 break;
 
 #if !NO_USE_MOUSE
-                case HID_USAGE_DESKTOP_MOUSE:
-        TU_LOG1("HID receive mouse report\r\n");
-        // Assume mouse follow boot report layout
-        process_mouse_report( (hid_mouse_report_t const*) report );
-      break;
+            case HID_USAGE_DESKTOP_MOUSE:
+                TU_LOG1("HID receive mouse report\r\n");
+                // Assume mouse follow boot report layout
+                process_mouse_report( (hid_mouse_report_t const*) report );
+                break;
 #endif
+
+           case HID_USAGE_DESKTOP_MULTI_AXIS_CONTROLLER:
+                TU_LOG1("HID receive multi-axis controller report\r\n");
+                process_multi_axis_controller_report(report, len);
+                break;
 
             default: break;
         }

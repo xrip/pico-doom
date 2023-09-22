@@ -81,9 +81,6 @@
 #include "d_main.h"
 #if PICO_BUILD
 #include "i_picosound.h"
-#if USB_SUPPORT
-#include "tusb.h"
-#endif
 #endif
 //
 // D-DoomLoop()
@@ -540,7 +537,7 @@ void D_DoomLoop (void)
 
     I_SetWindowTitle(gamedescription);
     I_GraphicsCheckCommandLine();
-#if !NO_USE_MOUSE
+#if 0
     I_SetGrabMouseCallback(D_GrabMouseCallback);
 #endif
     I_InitGraphics();

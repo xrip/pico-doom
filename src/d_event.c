@@ -26,7 +26,7 @@
 #if !DOOM_SMALL
 #define MAXEVENTS 64
 #else
-#define MAXEVENTS 8
+#define MAXEVENTS 16
 #endif
 
 static event_t events[MAXEVENTS];
