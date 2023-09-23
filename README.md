@@ -1,6 +1,6 @@
 # RP2040 Doom
 
-This is a port of Doom for RP2040 devices, derived from [Chocolate Doom](https://github.com/chocolate-doom/chocolate-doom).
+This is a fork for MURMULATOR devboard of port of Doom for RP2040 devices, derived from [Chocolate Doom](https://github.com/chocolate-doom/chocolate-doom).
 
 Significant changes have been made to support running on the RP2040 device, but particularly to support running the 
 entire shareware `DOOM1.WAD` which is 4M big on a Raspberry Pi Pico with only 2M flash!
