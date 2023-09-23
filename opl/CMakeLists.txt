@@ -13,7 +13,7 @@ if (PICO_SDK)
             EMU8950_NO_RATECONV
     )
     target_include_directories(opl INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-    target_link_libraries(opl INTERFACE pico_audio_i2s hardware_gpio)
+    target_link_libraries(opl INTERFACE pico_audio_i2s pico_audio_pwm hardware_gpio)
     if (PICO_ON_DEVICE)
         target_sources(opl INTERFACE
                 ${CMAKE_CURRENT_LIST_DIR}/slot_render_pico.S

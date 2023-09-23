@@ -32,7 +32,11 @@
 
 #include "doomtype.h"
 #include "i_picosound.h"
+#if 0
 #include "pico/audio_i2s.h"
+#else
+#include "pico/audio_pwm.h"
+#endif
 #include "pico/binary_info.h"
 #include "hardware/gpio.h"
 
@@ -69,8 +73,8 @@ static struct audio_buffer_pool *producer_pool;
 
 static struct audio_format audio_format = {
         .format = AUDIO_BUFFER_FORMAT_PCM_S16,
-        .sample_freq = PICO_SOUND_SAMPLE_FREQ,
-        .channel_count = 2,
+        .sample_freq = 24000,
+        .channel_count = 1,
 };
 
 static struct audio_buffer_format producer_format = {
@@ -423,6 +427,8 @@ static boolean I_Pico_InitSound(boolean _use_sfx_prefix)
     // todo this will likely need adjustment - maybe with IRQs/double buffer & pull from audio we can make it quite small
     producer_pool = audio_new_producer_pool(&producer_format, 2, 1024); // todo correct size
 
+    const struct audio_format *output_format;
+#if 0
     struct audio_i2s_config config = {
             .data_pin = PICO_AUDIO_I2S_DATA_PIN,
             .clock_pin_base = PICO_AUDIO_I2S_CLOCK_PIN_BASE,
@@ -430,7 +436,6 @@ static boolean I_Pico_InitSound(boolean _use_sfx_prefix)
             .pio_sm = 0,
     };
 
-    const struct audio_format *output_format;
     output_format = audio_i2s_setup(&audio_format, &config);
     if (!output_format) {
         panic("PicoAudio: Unable to open audio device.\n");
@@ -446,7 +451,15 @@ static boolean I_Pico_InitSound(boolean _use_sfx_prefix)
     bool ok = audio_i2s_connect_extra(producer_pool, false, 0, 0, NULL);
     assert(ok);
     audio_i2s_set_enabled(true);
-
+#else
+    output_format = audio_pwm_setup(&audio_format, -1, &default_mono_channel_config);
+    if (!output_format) {
+        panic("PicoAudio: Unable to open audio device.\n");
+    }
+    bool ok = audio_pwm_default_connect(producer_pool, false);
+    assert(ok);
+    audio_pwm_set_enabled(true);
+#endif
     sound_initialized = true;
     return true;
 }
