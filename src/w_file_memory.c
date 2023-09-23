@@ -55,7 +55,7 @@ bi_decl(bi_program_feature(ADDR_FNAME));
 #define wad_map_base tiny_whd
 #endif
 
-#include "tiny.whd.h"
+#include "tiny2.whd.h"
 #define wad_map_base tiny_whd
 
 const uint8_t *whd_map_base = wad_map_base;
