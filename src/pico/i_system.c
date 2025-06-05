@@ -138,9 +138,9 @@ static byte *AutoAllocMemory(int *size, int default_ram, int min_ram)
         zonemem = malloc(*size);
 #else
 #if PICO_ON_DEVICE
-        // we have set heap size to 0, so __HeapLimit is a good value
-        extern char __HeapLimit;
-        zonemem = (uint8_t *)(((uintptr_t)&__HeapLimit)&~3);
+        // we have set heap size to 0, so __end__ is a good value
+        extern char __end__;
+        zonemem = (uint8_t *)(((uintptr_t)&__end__)&~3);
         *size = ((uint8_t *)SRAM4_BASE) - zonemem;
 #else
 #error use zone for malloc only on device
